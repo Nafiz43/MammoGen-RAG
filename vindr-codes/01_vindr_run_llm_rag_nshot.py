@@ -128,7 +128,7 @@ def main(model_name, reports_to_process):
         parsed = json.loads(m.group(0)) if m else {}
 
         # Save output
-        save_dir = os.path.join('evaluated/_rag_nshot/', f"{model_name}_paired_view")
+        save_dir = os.path.join('/mnt/data1/Nafiz/MammoGen-RAG/evaluated-vindr/_rag_nshot/', f"{model_name}_paired_view")
         os.makedirs(save_dir, exist_ok=True)
         out_path = os.path.join(save_dir, f"{side}_{str(idx+1).zfill(3)}.json")
         with open(out_path, 'w') as f:

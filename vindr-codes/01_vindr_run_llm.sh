@@ -4,7 +4,9 @@
 
 # conda activate fine_tune
 
-python3 01_vindr_run_llm.py --model_name=llava:latest 
+# python3 00_populate_db_for_rag.py 
+
+# python3 01_vindr_run_llm.py --model_name=llava:latest 
 python3 01_vindr_run_llm.py --model_name=mistral:7b-instruct 
 python3 01_vindr_run_llm.py --model_name=qwen2.5:latest 
 

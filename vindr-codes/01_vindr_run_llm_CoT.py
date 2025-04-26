@@ -227,7 +227,7 @@ def process_side(model_name, side, cc_dir, mlo_dir, report_dir, reports_to_proce
         else:
             data = {"IMG_ID_CC":"NA","IMG_ID_MLO":"NA","BREAST_COMPOSITION":"NA","BIRADS":"NA","FINDINGS":"NA"}
 
-        out_dir = os.path.join('evaluated-vindr/_COT/', f"{model_name}_{side}")
+        out_dir = os.path.join('/mnt/data1/Nafiz/MammoGen-RAG/evaluated-vindr/_COT/', f"{model_name}_{side}")
         os.makedirs(out_dir, exist_ok=True)
         out_file = os.path.join(out_dir, filename.replace('.png', '.json'))
         with open(out_file, 'w') as jf:
