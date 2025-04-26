@@ -2,6 +2,7 @@
 secret.txt
 Miniconda3-latest-Linux-x86_64.sh
 vindr.zip
+process_reports.log
 
 # Ignore files in a specific directory
 /data/
@@ -24,3 +25,4 @@ qwen2.5_vindr_base.txt
 mixtral_vindr_base.txt
 /logs/
 vindr-codes/__pycache__
+
