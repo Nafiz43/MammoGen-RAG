@@ -35,7 +35,7 @@ multimodal_db = chroma_client.get_or_create_collection(name="multimodal_db_all",
 
 
 
-output = open_clip.create_model_and_transforms("ViT-B-32", pretrained="openai")
+output = open_clip.create_model_and_transforms("ViT-B-32-quickgelu", pretrained="openai")
 
 print(type(output), len(output))
 model, preprocess, tokenizer = output  # Assuming it returns 3 values
@@ -50,8 +50,8 @@ tokenizer = open_clip.get_tokenizer("ViT-B-32")
 embedding_function = OpenCLIPEmbeddingFunction()  # Initialize your embedding function
 
 # Define the directory paths
-image_directory = '/mnt/data1/raiyan/breast_cancer/datasets/dmid/pixel_level_annotations/png_images/'
-json_directory = '/mnt/data1/raiyan/breast_cancer/VLMs-for-Mammograms/GROUND-TRUTH-REPORTS'
+image_directory = '/mnt/data1/raiyan/breast_cancer/datasets/vindr/images_png/'
+json_directory = '/mnt/data1/Nafiz/MammoGen-RAG/vindr/ground_truth_reports'
 
 # Initialize lists
 ids = []
@@ -63,7 +63,8 @@ image_embeddings = []
 processed_count = 0  
 
 # Loop through images
-for img_path in glob(os.path.join(image_directory, '*.png')):  
+pattern = os.path.join(image_directory, '**', '*.png')
+for img_path in glob(pattern, recursive=True):
     img_name = os.path.basename(img_path)  
     json_path = os.path.join(json_directory, img_name.replace('.png', '.json'))  
 
@@ -73,9 +74,9 @@ for img_path in glob(os.path.join(image_directory, '*.png')):
 
         # Extract metadata fields
         metadata_entry = {
-            'Breast_Composition': metadata.get('Breast_Composition', 'N/A'),
+            'BREAST-COMPOSITION': metadata.get('BREAST-COMPOSITION', 'N/A'),
+            'FINDINGS': metadata.get('FINDINGS', 'N/A'),
             'BIRADS': metadata.get('BIRADS', 'N/A'),
-            'Findings': metadata.get('Findings', 'N/A')
         }
 
         # Load image
@@ -110,14 +111,14 @@ for img_path in glob(os.path.join(image_directory, '*.png')):
         #     break  # Stop after 5 images for testing
 
 # Check data before adding to DB (Optional)
-print("IDs:", ids)
-print("URIs:", uris)
-print("Embeddings:", image_embeddings)
-print("Metadatas:", metadatas)
+# print("IDs:", ids)
+# print("URIs:", uris)
+# print("Embeddings:", image_embeddings)
+# print("Metadatas:", metadatas)
 
 # Add records to the multimodal database
 
-print(image_embeddings)
+# print(image_embeddings)
 multimodal_db.add(
     ids=ids,
     uris=uris,
@@ -139,27 +140,27 @@ print(f"Number of indexes (embeddings) in the collection: {count}")
 # Perform the search for a test image
 
 
-img_path = "/mnt/data1/raiyan/breast_cancer/datasets/dmid/pixel_level_annotations/png_images/IMG001.png"  # Change to your image path
-image = Image.open(img_path).convert("RGB")
-image = preprocess(image).unsqueeze(0)  # Add batch dimension
+# img_path = "/mnt/data1/raiyan/breast_cancer/datasets/dmid/pixel_level_annotations/png_images/IMG001.png"  # Change to your image path
+# image = Image.open(img_path).convert("RGB")
+# image = preprocess(image).unsqueeze(0)  # Add batch dimension
 
-# Move to GPU if available
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model = model.to(device)
-image = image.to(device)
+# # Move to GPU if available
+# device = "cuda" if torch.cuda.is_available() else "cpu"
+# model = model.to(device)
+# image = image.to(device)
 
-# Generate image embedding
-with torch.no_grad():
-    image_embedding = model.encode_image(image)
+# # Generate image embedding
+# with torch.no_grad():
+#     image_embedding = model.encode_image(image)
 
-# Convert to NumPy array if needed
-image_embedding_np = image_embedding.cpu().numpy()
+# # Convert to NumPy array if needed
+# image_embedding_np = image_embedding.cpu().numpy()
 
-# print("Image embedding shape:", image_embedding_np.shape)
+# # print("Image embedding shape:", image_embedding_np.shape)
 
-# print(image_embedding)
+# # print(image_embedding)
 
-print()
+# print()
 
 # print(image_embedding_np)
 
@@ -168,7 +169,7 @@ print()
 
 results = multimodal_db.query(
     query_embeddings=image_embedding_np,  # Pass the query embedding as a list
-    n_results=3  # Number of similar results to return
+    n_results=5  # Number of similar results to return
 )
 
 # Print the results

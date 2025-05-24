@@ -1,0 +1,2 @@
+Model,Prompt Type,BIRADS_Precision,BIRADS_Recall,BIRADS_F1-score,Composition_Precision,Composition_Recall,Composition_F1-score,Composition_BERTScore_Precision,Composition_BERTScore_Recall,Composition_BERTScore_F1-score,Findings_BLEU,Findings_METEOR,Findings_ROUGE-L,Findings_BERTScore_Precision,Findings_BERTScore_Recall,Findings_BERTScore_F1-score
+qwen2.5:latest,zero_shot,0.1281,0.2010,0.0856,0.2098,0.2494,0.0625,-0.1263,0.4857,0.1628,0.0000,0.1504,0.2464,-0.0879,0.2097,0.0569

@@ -4,7 +4,7 @@ from _constant import *
 # source_file_dir = '/mnt/data1/raiyan/breast_cancer/datasets/dmid/png_images/all_images/IMG'
 
 # source_file_dir =  '/mnt/data1/raiyan/breast_cancer/datasets/dmid/pixel_level_annotations/png_images/IMG'
-source_file_dir =  '/mnt/data1/raiyan/breast_cancer/datasets/vindr/images_png'
+source_file_dir =  '/mnt/data1/raiyan/breast_cancer/VLMs-for-Mammograms/vindr/images_png'
 # saving_dir = '/mnt/data1/raiyan/breast_cancer/VLMs-for-Mammograms/evaluated/llava_base/'
 
 img_files = list_png_files(source_file_dir)
@@ -12,13 +12,13 @@ img_files = list_png_files(source_file_dir)
 temp = 0
 prompt_technique = "base"
 prompt_template = """
-I am providing you a mammogram image. Your task is to analyze the image and extract key diagnostic information, including breast composition, any significant findings, and assign the BIRADS score. Present the output in a structured JSON format with the following keys: IMG_ID, Breast_Composition, Findings, and BIRADS. Ensure the response is precise, medically relevant, and well-organized.
-Please follow the below given JSON format for your response and only output a valid json object:
+I will provide you with a mammogram image. Your task is to analyze the image and extract key diagnostic information, including breast composition, BIRADS category, and any significant findings. Present the output in a structured JSON format with the following keys: IMG_ID, Breast_Composition, BIRADS, and Findings. Ensure the response is precise, medically relevant, and well-organized.
+Please follow the below given JSON format for your response
 {
     "IMG-ID" "<Image_Filename>",
-    "BREAST-COMPOSITION" "<Provide the tissue density in ACR format where ACR A is almost entirely fatty, ACR B is scattered fibroglandular densities, ACR C is heterogeneously dense, and ACR D is extremely dense>",
-    "FINDINGS": "<Summary of any abnormalities, calcifications, or other observations>",
+    "BREAST-COMPOSITION" "<Description of breast tissue composition>",
     "BIRADS": "<BIRADS category; any values between 1 to 6. BI-RADS category is a standardized classification for breast imaging findings, ranging from 1 to 6, where: BI-RADS 1 indicates a negative result with no abnormalities; BI-RADS 2 signifies benign findings with no suspicion of cancer; BI-RADS 3 suggests a benign lesion, requiring short-term follow-up to confirm stability; BI-RADS 4 represents a suspicious abnormality needing biopsy, further divided into 4A (low suspicion), 4B (moderate suspicion), and 4C (high suspicion); BI-RADS 5 is highly suggestive of malignancy with a high probability of cancer; and BI-RADS 6 confirms a known malignancy with a biopsy-proven cancer diagnosis.",
+    "FINDINGS": "<Summary of any abnormalities, calcifications, or other observations>"
 }
 
 """
@@ -49,7 +49,7 @@ def main(model_name, reports_to_process):
     
     if(reports_to_process == -1):
         reports_to_process = len(img_files)
-        print(f"Processing only {reports_to_process} reports")
+
 
     # Your existing logic to handle logging
     # log_dir, log_file = "local_chat_history", f"{model_name+datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.csv"
@@ -67,12 +67,12 @@ def main(model_name, reports_to_process):
     # cnt = 0
     # print(questions)
 
-    cnt=0
+
     for report in range(0, reports_to_process):
         # report_id = source_file_dir + str(report+1).zfill(3)+'.png'
         report_id = source_file_dir + img_files[report]
 
-        # print(report_id)
+        print(report_id)
         # image_id = 'IMG'+ str(report+1).zfill(3)
         image_id =  img_files[report].replace('.png', '')
 
@@ -80,12 +80,12 @@ def main(model_name, reports_to_process):
         # query = 'image ID: ' + report_id
         query = prompt_template+ 'image ID: '+  report_id
 
-        # print("QUERY: ", query)
+        print("QUERY: ", query)
 
         ollama = Ollama(model=model_name, temperature=temp)
         logging.getLogger().setLevel(logging.ERROR)  # Suppress INFO logs
         response = ollama.invoke(query)
-        # print("RESPONSE: ",response)
+        print("RESPONSE: ",response)
 
         ###the following is a dummy response for testing ###
 
@@ -99,8 +99,6 @@ def main(model_name, reports_to_process):
 
         # response =dummy_data_str+"abdc"
         ### dummy response processing ENDS ###
-        
-        response = re.sub(r'\\_', '_',response)
 
         json_match = re.search(r"\{.*\}", response, re.DOTALL)
         if json_match in [None, ""]:
@@ -108,27 +106,20 @@ def main(model_name, reports_to_process):
         else:
             json_match = fix_json(json_match.group(0))
         
-        
-
-        # print(json_match)
+        print(json_match)
         # global saving_dir
         #constructing the saving dir here
-        saving_dir = 'evaluated-vindr/'+model_name+'_zero-shot/'
-        # print(saving_dir)
-        
-        
-        image_id = image_id.rsplit('/', 1)[-1] 
+        saving_dir = 'evaluated-vindr/'+model_name+'_/'
+        print(saving_dir)
+
         image_saving_dir = saving_dir +image_id + '.json'
 
         os.makedirs(os.path.dirname(image_saving_dir), exist_ok=True)
         with open(image_saving_dir, 'w') as json_file:
             json.dump(json_match, json_file, indent=4)
         
-        cnt+=1
-        if(cnt%20==0):
-            print("Processed", cnt, "reports with model", model_name)
 
-        # print("Data has been written to", image_saving_dir)
+        print("Data has been written to", image_saving_dir)
 
     print("\nTotal Reports Processed", reports_to_process)
 

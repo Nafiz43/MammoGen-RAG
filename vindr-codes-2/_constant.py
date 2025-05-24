@@ -2,7 +2,6 @@ import os
 import logging
 import click
 import pandas as pd
-from multiprocessing import Process
 import csv
 from datetime import datetime
 from langchain_ollama import OllamaLLM as Ollama
@@ -12,15 +11,11 @@ import random
 import os
 import json
 import re
-import logging
-import concurrent.futures
-from datetime import datetime
-
 
 allowable_models = ["meditron:latest", "jyan1/paligemma-mix-224:latest", "qwen2.5:latest", "medllama2:latest", "llama3.1:latest", "gemma:7b-instruct", "mistral:7b-instruct", "mixtral:8x7b-instruct-v0.1-q4_K_M", 
-         "llama2:latest", "llama2:70b-chat-q4_K_M", "llama2:13b-chat", "llama3.8b-instruct-q4_K_M", "llama3.3:70b", "llama3.2:latest", "meditron:70b", "tinyllama", "mistral:latest", "mistral-nemo:latest", 
+         "llama2:latest", "llama2:70b-chat-q4_K_M", "llama2:13b-chat", "llama3.8b-instruct-q4_K_M", "llama3.3:70b", "llama3.2:latest", "meditron:70b", "tinyllama", "mistral", "mistral-nemo:latest", 
           'vanilj/llama-3-8b-instruct-32k-v0.1:latest', "mistrallite:latest", "mistral-nemo:12b-instruct-2407-q4_K_M", "llama3.2:3b-instruct-q4_K_M", "deepseek-r1:1.5b",
-          "deepseek-r1:7b", "deepseek-r1:70b", "qordmlwls/llama3.1-medical:latest", "mixtral:latest","llava:latest"]
+          "deepseek-r1:7b", "deepseek-r1:70b", "qordmlwls/llama3.1-medical:latest", "mixtral:latest","llava:latest","llava:34b","llava:13b","llama3.2-vision:latest"]
 
 
 # Define the expected JSON schema using Pydantic
@@ -30,18 +25,9 @@ class ClassificationResponse(BaseModel):
 
 import json
 
-# def list_png_files(directory):
-#     """Returns a list of PNG files in the given directory."""
-#     return [file for file in os.listdir(directory) if file.lower().endswith('.png')]
-
 def list_png_files(directory):
-    """Returns a list of PNG file paths in the given directory and all its subdirectories."""
-    png_files = []
-    for root, dirs, files in os.walk(directory):
-        for fname in files:
-            if fname.lower().endswith('.png'):
-                png_files.append(os.path.join(root, fname))
-    return png_files
+    """Returns a list of PNG files in the given directory."""
+    return [file for file in os.listdir(directory) if file.lower().endswith('.png')]
 
 def fix_json(json_input):
     """
@@ -56,7 +42,7 @@ def fix_json(json_input):
 
     # Ensure input is a string (or bytes), otherwise return error JSON
     if not isinstance(json_input, (str, bytes, bytearray)):
-        return {"IMG_ID": "NA", "Breast_Composition": "NA", "Findings": "NA", "BIRADS": "NA"}
+        return {"Image": "NA", "Breast Composition": "NA", "Findings": "NA", "BIRADS": "NA"}
 
     # First, check if the JSON is already valid
     try:
@@ -64,7 +50,7 @@ def fix_json(json_input):
         if isinstance(parsed_json, dict):
             return parsed_json  # Ensure it's a dictionary
         else:
-            return {"IMG_ID": "NA", "Breast_Composition": "NA", "Findings": "NA", "BIRADS": "NA"}
+            return {"Image": "NA", "Breast Composition": "NA", "Findings": "NA", "BIRADS": "NA"}
     except json.JSONDecodeError:
         pass  # If invalid, proceed with fixing
 
@@ -79,4 +65,4 @@ def fix_json(json_input):
             continue  # Keep trimming
 
     # If all attempts fail, return error JSON
-    return {"IMG_ID": "NA", "Breast_Composition": "NA", "Findings": "NA", "BIRADS": "NA"}
+    return {"Image": "NA", "Breast Composition": "NA", "Findings": "NA", "BIRADS": "NA"}

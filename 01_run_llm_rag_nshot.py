@@ -33,20 +33,20 @@ source_file_dir =  '/mnt/data1/raiyan/breast_cancer/datasets/dmid/pixel_level_an
 temp = 0
 prompt_technique = "base"
 prompt_template = """
-I will provide you with a mammogram image. Your task is to analyze the image and extract key diagnostic information, including breast composition, BIRADS category, and any significant findings. Present the output in a structured JSON format with the following keys: IMG_ID, Breast_Composition, BIRADS, and Findings. Ensure the response is precise, medically relevant, and well-organized.
-Please follow the below given JSON format for your response:
+I am providing you a mammogram image. Your task is to analyze the image and extract key diagnostic information, including breast composition, any significant findings, and assign the BIRADS score. Present the output in a structured JSON format with the following keys: IMG_ID, Breast_Composition, Findings, and BIRADS. Ensure the response is precise, medically relevant, and well-organized.
+Please follow the below given JSON format for your response and only output a valid json object:
 {
-    "IMG-ID": "<Image_Filename>",
-    "BREAST-COMPOSITION": "<Description of breast tissue composition>",
+    "IMG-ID" "<Image_Filename>",
+    "BREAST-COMPOSITION" "<Provide the tissue density in ACR format where ACR A is almost entirely fatty, ACR B is scattered fibroglandular densities, ACR C is heterogeneously dense, and ACR D is extremely dense>",
+    "FINDINGS": "<Summary of any abnormalities, calcifications, or other observations>",
     "BIRADS": "<BIRADS category; any values between 1 to 6. BI-RADS category is a standardized classification for breast imaging findings, ranging from 1 to 6, where: BI-RADS 1 indicates a negative result with no abnormalities; BI-RADS 2 signifies benign findings with no suspicion of cancer; BI-RADS 3 suggests a benign lesion, requiring short-term follow-up to confirm stability; BI-RADS 4 represents a suspicious abnormality needing biopsy, further divided into 4A (low suspicion), 4B (moderate suspicion), and 4C (high suspicion); BI-RADS 5 is highly suggestive of malignancy with a high probability of cancer; and BI-RADS 6 confirms a known malignancy with a biopsy-proven cancer diagnosis.",
-    "FINDINGS": "<Summary of any abnormalities, calcifications, or other observations>"
 }
 
 """
 
 
 
-allowable_models = ["meditron:latest", "jyan1/paligemma-mix-224:latest", "qwen2.5:latest", "medllama2:latest", "llama3.1:latest", "gemma:7b-instruct", "mistral:7b-instruct", "mixtral:8x7b-instruct-v0.1-q4_K_M", 
+allowable_models = ["meditron:latest", "jyan1/paligemma-mix-224:latest", "qwen2.5:latest", "medllama2:latest", "llama3.1:latest", "gemma:7b-instruct", "mistral:latest", "mixtral:8x7b-instruct-v0.1-q4_K_M", 
          "llama2:latest", "llama2:70b-chat-q4_K_M", "llama2:13b-chat", "llama3.8b-instruct-q4_K_M", "llama3.3:70b", "llama3.2:latest", "meditron:70b", "tinyllama", "mistral", "mistral-nemo:latest", 
           'vanilj/llama-3-8b-instruct-32k-v0.1:latest', "mistrallite:latest", "mistral-nemo:12b-instruct-2407-q4_K_M", "llama3.2:3b-instruct-q4_K_M", "deepseek-r1:1.5b",
           "deepseek-r1:7b", "deepseek-r1:70b", "qordmlwls/llama3.1-medical:latest", "mixtral:latest","llava:latest"]
@@ -142,7 +142,7 @@ def fix_json(json_input):
 
     # Ensure input is a string (or bytes), otherwise return error JSON
     if not isinstance(json_input, (str, bytes, bytearray)):
-        return {"IMG_ID": "NA", "Breast_Composition": "NA", "BIRADS": "NA", "Findings": "NA"}
+        return {"IMG-ID": "NA", "BREAST-COMPOSITION": "NA", "Findings": "NA", "BIRADS": "NA"}
 
     # First, check if the JSON is already valid
     try:
@@ -150,7 +150,7 @@ def fix_json(json_input):
         if isinstance(parsed_json, dict):
             return parsed_json  # Ensure it's a dictionary
         else:
-            return {"IMG_ID": "NA", "Breast_Composition": "NA", "BIRADS": "NA", "Findings": "NA"}
+            return {"IMG-ID": "NA", "BREAST-COMPOSITION": "NA", "Findings": "NA", "BIRADS": "NA"}
     except json.JSONDecodeError:
         pass  # If invalid, proceed with fixing
 
@@ -165,7 +165,7 @@ def fix_json(json_input):
             continue  # Keep trimming
 
     # If all attempts fail, return error JSON
-    return {"IMG_ID": "NA", "Breast_Composition": "NA", "BIRADS": "NA", "Findings": "NA"}
+    return {"IMG-ID": "NA", "BREAST-COMPOSITION": "NA", "Findings": "NA", "BIRADS": "NA"}
 
 @click.command()
 @click.option(
@@ -221,8 +221,8 @@ def main(model_name, reports_to_process):
             {{
             "IMG-ID": /mnt/data1/raiyan/breast_cancer/datasets/dmid/pixel_level_annotations/png_images/{image_id},
             "BREAST-COMPOSITION": "{img_breast_composition}",
-            "BIRADS": "{img_birads}",
-            "FINDINGS": "{img_findings}"
+            "FINDINGS": "{img_findings}",
+            "BIRADS": "{img_birads}"
             }}
             """
 
@@ -247,7 +247,8 @@ def main(model_name, reports_to_process):
 
         json_match = re.search(r"\{.*\}", response, re.DOTALL)
         if json_match in [None, ""]:
-            json_match = {"IMG_ID": "NA", "Breast_Composition": "NA", "BIRADS": "NA", "Findings": "NA"}
+            json_match = {"IMG-ID": "NA", "BREAST-COMPOSITION": "NA", "Findings": "NA", "BIRADS": "NA"}
+
         else:
             json_match = fix_json(json_match.group(0))
         

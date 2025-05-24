@@ -1,9 +1,8 @@
 import os
 import logging
-import click
 import json
 import re
-from glob import glob
+import click
 from PIL import Image
 import torch
 import open_clip
@@ -14,22 +13,58 @@ from langchain_ollama import OllamaLLM as Ollama
 
 # ——— Paths for paired views ———
 BASE_IMG_DIR = '/mnt/data1/Nafiz/MammoGen-RAG/vindr'
-JSON_BASE_DIR = '/mnt/data1/Nafiz/MammoGen-RAG/vindr/GROUND_TRUTH_REPORTS'
+
+# Side-specific directories
+SIDE_DIRS = {
+    'L': {'cc': os.path.join(BASE_IMG_DIR, 'L_CC'), 'mlo': os.path.join(BASE_IMG_DIR, 'L_MLO')},
+    'R': {'cc': os.path.join(BASE_IMG_DIR, 'R_CC'), 'mlo': os.path.join(BASE_IMG_DIR, 'R_MLO')}
+}
+
+# Prompt template with placeholders
+PROMPT_TEMPLATE = r"""
+I will provide you with two mammogram images. First one is the top-view of a breast whereas the second one is the side-view. Your task is to analyze the image and extract key diagnostic information, including breast composition, BIRADS category, and any significant findings. Present the output in a structured JSON format with the following keys: IMG_ID_CC, IMG_ID_MLO, Breast_Composition, BIRADS, and Findings. Ensure the response is precise, medically relevant, and well-organized.
+
+IMPORTANT: Always use forward slashes (/) for any file paths. NEVER use backslashes (\\) in any path. All file paths must use forward slashes.
+
+Please follow the below given JSON format for your response
+```json
+{{
+    "IMG_ID_CC": "<Image_Filename>",
+    "IMG_ID_MLO": "<Image_Filename>",
+    "BREAST_COMPOSITION": "<Description of breast tissue composition>",
+    "BIRADS": "<A single value from 0 to 6 indicating the BIRADS category>",
+    "FINDINGS": "<Summary of any abnormalities, calcifications, or other observations found in any of the views>"
+}}
+```
+
+Here are some examples of doctor annotated reports to guide you:
+{context}
+"""
 
 # ChromaDB setup
-ochroma_client = chromadb.PersistentClient(path="./chroma")
+chroma_client = chromadb.PersistentClient(path="./chroma")
 multimodal_db = chroma_client.get_or_create_collection(
-    name="multimodal_db_all"
+    name="multimodal_db_all",
+    embedding_function=None
 )
+
+# Verify collection
+try:
+    num_entries = multimodal_db.count()
+    print(f"📊 ChromaDB collection contains {num_entries} embeddings")
+    if num_entries == 0:
+        raise RuntimeError("ChromaDB collection is empty—run the embedding indexer first.")
+except AttributeError:
+    print("⚠️ Cannot determine collection size; ensure embeddings have been indexed.")
 
 # Load OpenCLIP model & preprocess
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model = open_clip.create_model("ViT-B-32", pretrained="openai").to(device)
-preprocess = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=(0.481, 0.457, 0.408), std=(0.268, 0.261, 0.275))
-])
+model, _, preprocess = open_clip.create_model_and_transforms(
+    "ViT-B-32-quickgelu", pretrained="openai"
+)
+model = model.to(device)
+
+# Helpers
 
 def get_image_embedding(image: Image.Image) -> list:
     img_t = preprocess(image).unsqueeze(0).to(device)
@@ -37,30 +72,59 @@ def get_image_embedding(image: Image.Image) -> list:
         emb = model.encode_image(img_t)
     return emb.cpu().numpy().flatten().tolist()
 
-# Modify: accept two view paths and concatenate embeddings
-def retrieve_similar_images(cc_path: str, mlo_path: str, top_k: int = 3) -> dict:
-    # load both views
-    img_cc  = Image.open(cc_path).convert("RGB")
+
+def retrieve_similar_images(cc_path: str, mlo_path: str, top_k: int = 3) -> list:
+    """
+    Fetches the top_k neighbors for a CC/MLO pair and splits their embeddings into two 512-vectors.
+
+    Returns a list of dicts with keys:
+      - id: entry identifier
+      - distance: similarity score
+      - uri: {'cc': path, 'mlo': path}
+      - metadata: clinical labels
+      - cc_embedding: 512-dim vector for the CC view
+      - mlo_embedding: 512-dim vector for the MLO view
+    """
+    # Load and embed both input views
+    img_cc = Image.open(cc_path).convert("RGB")
     img_mlo = Image.open(mlo_path).convert("RGB")
-
-    # get embeddings
-    emb_cc  = get_image_embedding(img_cc)
+    emb_cc = get_image_embedding(img_cc)
     emb_mlo = get_image_embedding(img_mlo)
-
-    # concatenate for 1024-d query
     combined = emb_cc + emb_mlo
 
-    # query vector store
-    results = multimodal_db.query(
+    # Query ChromaDB for full-pair embeddings
+    result = multimodal_db.query(
         query_embeddings=[combined],
-        n_results=top_k
+        n_results=top_k,
+        include=["documents", "metadatas", "distances", "embeddings", "uris"]
     )
-    return results
 
-# JSON cleanup helpers
+    # Parse results
+    ids = result.get('ids', [[]])[0]
+    docs = result.get('documents', [[]])[0]
+    metas = result.get('metadatas', [[]])[0]
+    dists = result.get('distances', [[]])[0]
+    embs = result.get('embeddings', [[]])[0]
 
-def remove_invalid_control_chars(input_string: str) -> str:
-    return re.sub(r'[\x00-\x1F\x7F\\]', '', input_string)
+    neighbors = []
+    half = len(embs[0]) // 2  # should be 512
+    for i, nid in enumerate(ids):
+        full_emb = embs[i]
+        cc_emb_nb = full_emb[:half]
+        mlo_emb_nb = full_emb[half:]
+        neighbors.append({
+            'id': nid,
+            'distance': dists[i],
+            'uri': docs[i],
+            'metadata': metas[i],
+            'cc_embedding': cc_emb_nb,
+            'mlo_embedding': mlo_emb_nb
+        })
+    return neighbors
+
+
+def remove_invalid_control_chars(text: str) -> str:
+    return re.sub(r'[\x00-\x1F\x7F\\]', '', text)
 
 class ClassificationResponse(BaseModel):
     IMG_ID_CC: str
@@ -69,72 +133,77 @@ class ClassificationResponse(BaseModel):
     BIRADS: str
     FINDINGS: str
 
-@click.command()
-@click.option("--model_name", default="llama3.1:latest", type=str)
-@click.option("--reports_to_process", default=-1, type=int)
-def main(model_name, reports_to_process):
-    logging.basicConfig(level=logging.ERROR)
-    temp = 0
+# Main processing function
 
-    # Determine how many to process
-    total = reports_to_process if reports_to_process > 0 else 510
+def process_side(model_name: str, side: str) -> int:
+    cc_dir = SIDE_DIRS[side]['cc']
+    mlo_dir = SIDE_DIRS[side]['mlo']
+    processed = 0
+    json_dir = os.path.join(BASE_IMG_DIR, 'GROUND_TRUTH_REPORTS', side)
+    json_files = [f for f in os.listdir(json_dir) if f.endswith(f"_{side}.json")]
 
-    for idx in range(total):
-        # build IDs & paths (example: side 'L' or 'R' can be inferred or parameterized)
-        side = 'L'  # or set dynamically per your dataset split logic
-        base_name = f"IMG{str(idx+1).zfill(3)}.png"
-        cc_path  = os.path.join(BASE_IMG_DIR, f"{side}_CC", base_name)
-        mlo_path = os.path.join(BASE_IMG_DIR, f"{side}_MLO", base_name)
-        report_json_dir = os.path.join(JSON_BASE_DIR, side)
+    for json_file in json_files:
+        case_id = json_file[:-len(f"_{side}.json")]
+        base_name = f"{case_id}.png"
+        cc_path = os.path.join(cc_dir, base_name)
+        mlo_path = os.path.join(mlo_dir, base_name)
 
         if not (os.path.exists(cc_path) and os.path.exists(mlo_path)):
+            print(f"⚠️ Missing view for {base_name}, skipping.")
             continue
 
-        # Retrieve neighbors
-        results = retrieve_similar_images(cc_path, mlo_path, top_k=3)
+        # Retrieve neighbors from ChromaDB
+        neighbors = retrieve_similar_images(cc_path, mlo_path, top_k=3)
+        if not neighbors:
+            print(f"⚠️ No neighbors for {base_name}, skipping.")
+            continue
 
-        # Build RAG context with paired-view examples
-        context = "Here are some examples of doctor-annotated reports:\n"
-        for i in range(len(results['ids'][0])):
-            uri_dict = results['uris'][0][i]
-            meta     = results['metadatas'][0][i]
-            context += f"Example {i+1}: {{\n"
-            context += f"  \"IMG_ID_CC\": \"{uri_dict['cc']}\",\n"
-            context += f"  \"IMG_ID_MLO\": \"{uri_dict['mlo']}\",\n"
-            context += f"  \"BREAST_COMPOSITION\": \"{meta['Breast_Composition']}\",\n"
-            context += f"  \"BIRADS\": \"{meta['BIRADS']}\",\n"
-            context += f"  \"FINDINGS\": \"{meta['Findings']}\"\n}}\n"
+        # Build RAG context with three examples
+        context = "Here are three examples of doctor-annotated reports:\n"
+        for idx, nbr in enumerate(neighbors, 1):
+            uri = nbr.get('uri', {}) or {}
+            meta = nbr.get('metadata', {}) or {}
+            context += (
+                f"Example {idx}: {{\n"
+                f"  \"IMG_ID_CC\": \"{uri.get('cc','')}\",\n"
+                f"  \"IMG_ID_MLO\": \"{uri.get('mlo','')}\",\n"
+                f"  \"BREAST_COMPOSITION\": \"{meta.get('Breast_Composition','')}\",\n"
+                f"  \"BIRADS\": \"{meta.get('BIRADS','')}\",\n"
+                f"  \"FINDINGS\": \"{meta.get('Findings','')}\"\n}}\n"
+            )
 
-        # Build the prompt
-        prompt = (
-            "I will provide you with two mammogram images…"
-            f"\n\nIMG_ID_CC: {cc_path}\n"
-            f"IMG_ID_MLO: {mlo_path}\n"
-            f"{context}"
-        )
+        # Inject neighbors into prompt and call the model
+        prompt_text = PROMPT_TEMPLATE.format(context=context)
+        raw_resp = Ollama(model=model_name, temperature=0).invoke(prompt_text)
+        response = remove_invalid_control_chars(raw_resp)
 
-        prompt = remove_invalid_control_chars(prompt)
-    
-
-        # print(context)
-
-        # Invoke LLM via Ollama
-        ollama = Ollama(model=model_name, temperature=temp)
-        response = ollama.invoke(prompt)
-        response = remove_invalid_control_chars(response)
-
-        # Extract JSON
+        # Parse and save LLM output
         m = re.search(r"\{.*\}", response, re.DOTALL)
         parsed = json.loads(m.group(0)) if m else {}
 
-        # Save output
-        save_dir = os.path.join('/mnt/data1/Nafiz/MammoGen-RAG/evaluated-vindr/_rag_nshot/', f"{model_name}_paired_view")
-        os.makedirs(save_dir, exist_ok=True)
-        out_path = os.path.join(save_dir, f"{side}_{str(idx+1).zfill(3)}.json")
-        with open(out_path, 'w') as f:
+        out_dir = os.path.join(
+            '/mnt/data1/Nafiz/MammoGen-RAG/evaluated-vindr/_rag_nshot',
+            f"{model_name}_{side}_3shot"
+        )
+        os.makedirs(out_dir, exist_ok=True)
+        with open(os.path.join(out_dir, f"{case_id}.json"), 'w') as f:
             json.dump(parsed, f, indent=4)
 
-        print(f"Written: {out_path}")
+        processed += 1
+        if processed % 1000 == 0:
+            print(f"[{side}] Processed {processed} reports...")
+
+    print(f"Completed {processed} reports for side {side}.")
+    return processed
+
+
+@click.command()
+@click.option("--model_name", default="llama3.1:latest", type=str)
+def main(model_name: str):
+    logging.basicConfig(level=logging.ERROR)
+    total_l = process_side(model_name, 'L')
+    total_r = process_side(model_name, 'R')
+    print(f"Total reports processed: {total_l + total_r}")
 
 if __name__ == '__main__':
     main()
