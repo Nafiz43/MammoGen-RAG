@@ -1,2 +1,13 @@
-Model,Prompt Type,BIRADS_Precision,BIRADS_Recall,BIRADS_F1-score,Composition_Precision,Composition_Recall,Composition_F1-score,Composition_BERTScore_Precision,Composition_BERTScore_Recall,Composition_BERTScore_F1-score,Findings_BLEU,Findings_METEOR,Findings_ROUGE-L,Findings_BERTScore_Precision,Findings_BERTScore_Recall,Findings_BERTScore_F1-score
-qwen2.5:latest,zero_shot,0.1281,0.2010,0.0856,0.2098,0.2494,0.0625,-0.1263,0.4857,0.1628,0.0000,0.1504,0.2464,-0.0879,0.2097,0.0569
+Directory,Model,Prompt Type,BIRADS_Precision,BIRADS_Recall,BIRADS_F1-score,Composition_Precision,Composition_Recall,Composition_F1-score,Composition_BERTScore_Precision,Composition_BERTScore_Recall,Composition_BERTScore_F1-score,Findings_BLEU,Findings_METEOR,Findings_ROUGE-L,Findings_BERTScore_Precision,Findings_BERTScore_Recall,Findings_BERTScore_F1-score
+llava:latest_COT,llava:latest,COT,0.2699,0.2091,0.1014,0.1975,0.2506,0.0449,0.7810,0.8748,0.8252,0.0000,0.0406,0.0550,0.8161,0.8433,0.8294
+llava:latest_n-shot,llava:latest,n-shot,0.2533,0.2057,0.1719,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000
+llava:latest_rag_nshot,llava:latest,rag_nshot,0.2922,0.2216,0.2250,0.5359,0.3500,0.2983,0.9996,0.9996,0.9996,0.0000,0.8489,0.9066,0.9852,0.9857,0.9853
+llava:latest_zero-shot,llava:latest,zero-shot,0.1834,0.1953,0.1748,0.0852,0.2474,0.0485,0.8107,0.9142,0.8593,0.0000,0.3230,0.3040,0.8248,0.8570,0.8405
+mistral:latest_COT,mistral:latest,COT,0.1791,0.2001,0.0149,0.2519,0.2497,0.0478,0.7751,0.8669,0.8185,0.0000,0.0076,0.0105,0.7991,0.8371,0.8176
+mistral:latest_n-shot,mistral:latest,n-shot,0.4209,0.2001,0.0233,0.4588,0.2599,0.2302,0.9997,0.9997,0.9997,0.0000,0.0185,0.0431,0.9047,0.8471,0.8745
+mistral:latest_rag_nshot,mistral:latest,rag_nshot,0.2227,0.1971,0.0273,0.4983,0.2606,0.0906,0.9801,0.9880,0.9839,0.0000,0.0041,0.0085,0.7816,0.8382,0.8084
+mistral:latest_zero-shot,mistral:latest,zero-shot,0.1998,0.2052,0.1218,0.0591,0.2517,0.0845,0.7668,0.8652,0.8130,0.0000,0.2955,0.3474,0.8277,0.8539,0.8405
+qwen2.5:latest_COT,qwen2.5:latest,COT,0.0688,0.2007,0.0442,0.2104,0.2486,0.2228,0.7734,0.8749,0.8210,0.0000,0.2101,0.0999,0.8094,0.8299,0.8194
+qwen2.5:latest_n-shot,qwen2.5:latest,n-shot,0.3405,0.2006,0.0674,0.3912,0.2600,0.2357,0.9999,0.9999,0.9999,0.0000,0.1816,0.2071,0.8684,0.8980,0.8827
+qwen2.5:latest_rag_nshot,qwen2.5:latest,rag_nshot,0.2039,0.2039,0.1149,0.5283,0.2822,0.2702,0.9997,0.9997,0.9997,0.0000,0.1412,0.2426,0.8171,0.8574,0.8364
+qwen2.5:latest_zero-shot,qwen2.5:latest,zero-shot,0.1281,0.2010,0.0856,0.2098,0.2494,0.0625,0.8102,0.9133,0.8587,0.0000,0.1504,0.2464,0.8167,0.8668,0.8408
